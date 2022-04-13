@@ -7,3 +7,4 @@ ASCOM Canon EF Lens Controller by ASTROMECHANICS
     This program was created by Bergamot-Jellybeans for the M5Stack.
     Requires an HSB host module in addition to the M5Stack CPU module.
     You can remote control by providing another M5Stack.
+    And if you have a FACES ENCODER you can control the focus by turning the encoder knob.
