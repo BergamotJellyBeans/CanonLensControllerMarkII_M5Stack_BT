@@ -21,12 +21,23 @@ facesEncoder::~facesEncoder()
 bool facesEncoder::check( void )
 {
   currentPosition = 0;
+  incrementMultiplier = 1;
+  for ( int index = 0; index < Faces_Encoder_RingLight_Count; index++ ) {
+    currentRingLight[index].colorRed = 0;
+    currentRingLight[index].colorGreen = 0;
+    currentRingLight[index].colorBlue = 0;
+  }
   return getEncoderValue();
 }
 
 void facesEncoder::setEncoderPosition( int16_t position )
 {
   currentPosition = position;
+}
+
+void facesEncoder::setIncrementMultiplier( int16_t multiplier )
+{
+  incrementMultiplier = multiplier;
 }
 
 bool facesEncoder::getEncoderValue( void )
@@ -49,7 +60,7 @@ int16_t facesEncoder::getCurrentPosition( void )
     } else {
       incrementPosition = (int16_t)encoderValue;
     }
-    currentPosition += incrementPosition;
+    currentPosition += incrementPosition * incrementMultiplier;
   }
   
   return currentPosition;
@@ -62,12 +73,18 @@ bool facesEncoder::buttonIsPressed( void )
 
 uint8_t facesEncoder::ringLight( int index, uint8_t r, uint8_t g, uint8_t b )
 {
+  if ( ( currentRingLight[index].colorRed != r ) || ( currentRingLight[index].colorGreen != g ) || ( currentRingLight[index].colorBlue != b ) ) {
+    currentRingLight[index].colorRed = r;
+    currentRingLight[index].colorGreen = g;
+    currentRingLight[index].colorBlue = b;
     Wire.beginTransmission( addr );
     Wire.write( index );
     Wire.write( r );
     Wire.write( g );
     Wire.write( b );
     return Wire.endTransmission();
+  }
+  return 0;
 }
 
 void facesEncoder::ringLight( uint8_t r, uint8_t g, uint8_t b )

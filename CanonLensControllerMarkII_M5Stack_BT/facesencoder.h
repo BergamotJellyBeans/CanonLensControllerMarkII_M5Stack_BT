@@ -39,6 +39,12 @@
 extern "C" {
 #endif
 
+typedef struct {
+  uint8_t colorRed;
+  uint8_t colorGreen;
+  uint8_t colorBlue;
+} ledColorInfo_t;
+
 class facesEncoder
 {
 private:
@@ -46,7 +52,9 @@ private:
   uint8_t encoderValue;
   uint8_t encoderButton;
   int16_t incrementPosition;
+  int16_t incrementMultiplier;
   int16_t currentPosition;
+  ledColorInfo_t currentRingLight[Faces_Encoder_RingLight_Count];
 
   bool getEncoderValue( void );
 public:
@@ -56,6 +64,7 @@ public:
 
   bool check( void );
   void setEncoderPosition( int16_t position );
+  void setIncrementMultiplier( int16_t multiplier );
   int16_t getCurrentPosition( void );
   bool buttonIsPressed( void );
   uint8_t ringLight( int index, uint8_t r, uint8_t g, uint8_t b );

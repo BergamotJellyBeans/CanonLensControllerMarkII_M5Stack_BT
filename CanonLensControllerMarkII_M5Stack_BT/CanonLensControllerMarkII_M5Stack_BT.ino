@@ -151,6 +151,9 @@ char recvLineBT[RECVLINES];
 facesEncoder encoder;
 bool useEncoder;
 int16_t latestEncoderPosition;
+bool latestButtonStatus;
+int16_t incremet;
+int16_t currentLightIndicator;
 
 unsigned long batteryUpdateTime;
 int lastBatteryLevel;
@@ -487,6 +490,14 @@ void selectLensDisplay( void )
   labelFocus->textBaseOffset = -4;
 }
 
+void lightIndicator( void )
+{
+  if ( incremet == 1 ) {
+    encoder.ringLight( currentLightIndicator, 0, 128, 0 );
+  } else {
+    encoder.ringLight( currentLightIndicator, 128, 0, 0 );
+  }
+}
 // --- Functions that are no longer used
 // Get the battery information of the M5Stack.
 #if 0
@@ -526,6 +537,7 @@ void setup()
   useEncoder = encoder.check();
   
   latestEncoderPosition = 0;
+  latestButtonStatus = false;
   batteryUpdateTime = 0;
   lastBatteryLevel = 0;
   recvLineUSBIndex = 0;
@@ -662,6 +674,9 @@ void loop( void )
       if ( useEncoder ) {
         encoder.ringLight( (uint16_t *)connectRingLitPattern, 20, 0, 0, 255 );
       }
+      incremet = 1;
+      currentLightIndicator = 0;
+      lightIndicator();
       SerialBT.printf( "Q%s#", myMacBTString.c_str() );
       systemParam.phase = PHASE_LENS;
     }
@@ -772,12 +787,37 @@ void loop( void )
         SerialBT.printf( "BB #" );
     }
     if ( useEncoder ) {
-      // Rotate the encoder clockwise and the focus will be farther away.
-      // Rotate the encoder counter-clockwise brings the focus closer.
-      int16_t position = encoder.getCurrentPosition();
-      if ( latestEncoderPosition != position ) {
-        SerialBT.printf( "f%d#", position );
-        latestEncoderPosition = position;
+     // Rotate the encoder clockwise and the focus will be farther away.
+     // Rotate the encoder counter-clockwise brings the focus closer.
+      switch ( systemParam.phase ) {
+      case PHASE_APERTURE:  // Aperture selection in progress.
+      case PHASE_FOCUS:   // Adjusting the focus position of the lens.
+        int16_t position = encoder.getCurrentPosition();
+        int16_t diff = position - latestEncoderPosition;
+        if ( diff != 0 ) {
+          SerialBT.printf( "f%d#", position );
+          latestEncoderPosition = position;
+          encoder.ringLight( currentLightIndicator, 0, 0, 0 );
+          diff /= incremet;
+          currentLightIndicator += diff;
+          if ( currentLightIndicator >= Faces_Encoder_RingLight_Count ) {
+            currentLightIndicator %= Faces_Encoder_RingLight_Count;
+          } else if ( currentLightIndicator < 0 ) {
+            currentLightIndicator += Faces_Encoder_RingLight_Count;
+          }
+          lightIndicator();
+//          Serial.printf( "currentLightIndicator%d\n", currentLightIndicator );
+        }
+        bool buttonStatus = encoder.buttonIsPressed(); 
+        if ( latestButtonStatus != buttonStatus ) {
+          if ( buttonStatus ) {
+            incremet = ( incremet == 1 ) ? 10 : 1;
+            encoder.setIncrementMultiplier( incremet );
+            lightIndicator();
+          }
+          latestButtonStatus = buttonStatus;
+        }
+        break;
       }
     }
   }
@@ -930,6 +970,7 @@ void perserBT( void )
       systemParam.lensIndex = paramStringList[1].toInt(); 
       systemParam.apertureIndex = paramStringList[2].toInt(); 
       systemParam.focusPosition = paramStringList[3].toInt(); 
+      latestEncoderPosition = systemParam.focusPosition;
       switch ( systemParam.phase ) {
       case PHASE_LENS:    // Lens selection in progress.
         lensSelect();
@@ -942,7 +983,7 @@ void perserBT( void )
         apertureSelect();
         focusPosition();
         if ( useEncoder ) {
-          encoder.setEncoderPosition( systemParam.focusPosition );
+          encoder.setEncoderPosition( latestEncoderPosition );
         }
         break;
       case PHASE_FOCUS:   // Adjusting the focus position of the lens.
@@ -953,7 +994,7 @@ void perserBT( void )
         apertureSelect();
         focusPosition();
         if ( useEncoder ) {
-          encoder.setEncoderPosition( systemParam.focusPosition );
+          encoder.setEncoderPosition( latestEncoderPosition );
         }
         break;
       }
