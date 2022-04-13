@@ -33,7 +33,7 @@ Protocol description
 	Copyright (C) 2022 by bergamot-jellybeans.
 
 	Date-written.	Jan 06,2022.
-	Last-modify.	Apr 10,2022.
+	Last-modify.	Apr 13,2022.
 	mailto:			bergamot.jellybeans@icloud.com
 
   Revision history
@@ -46,6 +46,8 @@ Protocol description
   Apr 10,2022
     Added Bluetooth remote control function.
     The program name has been changed.    
+  Apr 12,2022
+    Added Faces encoder allows for focus control.
     
 */
 
@@ -58,6 +60,7 @@ Protocol description
 #include "IniFiles.h"
 #include "ButtonEx.h"
 #include "BluetoothSerial.h"
+#include "facesEncoder.h"
 
 int baud = 38400;   // for ASCOM Canon EF Lens Controller
 
@@ -144,6 +147,11 @@ StringQueue queueBT( QUEUELENGTH );       // receive serial queue of commands
 int recvLineBTIndex;
 char recvLineBT[RECVLINES];
 
+// Faces Encoder
+facesEncoder encoder;
+bool useEncoder;
+int16_t latestEncoderPosition;
+
 unsigned long batteryUpdateTime;
 int lastBatteryLevel;
 int numberOfLens;
@@ -168,6 +176,22 @@ LabelEx* labelBtnB;
 LabelEx* labelBtnC;
 LabelEx* labelMacBT;
 
+const uint16_t connectRingLitPattern[] = {
+  RINGLIGHT_BIT0 | RINGLIGHT_BIT11,
+  RINGLIGHT_BIT1 | RINGLIGHT_BIT10,
+  RINGLIGHT_BIT2 | RINGLIGHT_BIT9,
+  RINGLIGHT_BIT3 | RINGLIGHT_BIT8,
+  RINGLIGHT_BIT4 | RINGLIGHT_BIT7,
+  RINGLIGHT_BIT5 | RINGLIGHT_BIT6,
+  RINGLIGHT_BIT4 | RINGLIGHT_BIT7,
+  RINGLIGHT_BIT3 | RINGLIGHT_BIT8,
+  RINGLIGHT_BIT2 | RINGLIGHT_BIT9,
+  RINGLIGHT_BIT1 | RINGLIGHT_BIT10,
+  RINGLIGHT_BIT0 | RINGLIGHT_BIT11,
+  0,
+  RINGLIGHT_BIT_END,
+};
+       
 void perserUSB( void );
 void perserBT( void );
 
@@ -358,7 +382,7 @@ void focusPosition( int sel )
 {
   systemParam.focusPosition = sel;
   focusPosition();
-  setFocusPosition(sel );
+  setFocusPosition( sel );
 }
 
 // Move the focus position of the lens by the incremental argument <incstep>.
@@ -410,6 +434,9 @@ bool readSystemFile( void )
   bool validFile = ini.open( SD, MYINIFILENAME );
   systemParam.lensIndex = ini.readInteger( "LensIndex", 0 );
   systemParam.apertureIndex = ini.readInteger( "ApertureIndex", 0 );
+
+  // If you want to run as a remote control, please write the mac address of the connection destination.
+  // macBT=XX:XX:XX:XX:XX:XX
   systemParam.macBTString = ini.readString( "macBT", "" );
   Serial.printf( "macBTString = %s\n", systemParam.macBTString.c_str() );
   if ( systemParam.macBTString != "" ) {
@@ -495,7 +522,10 @@ void setup()
   // initialize the M5Stack object
   M5.begin( true, true, true, true );
   M5.Power.begin();
-
+  Wire.begin();
+  useEncoder = encoder.check();
+  
+  latestEncoderPosition = 0;
   batteryUpdateTime = 0;
   lastBatteryLevel = 0;
   recvLineUSBIndex = 0;
@@ -567,8 +597,6 @@ void setup()
   readLensInfoFile();
   readSystemFile();
 
-  delay( 300 );
-
   labelLensNameTitle->caption( TFT_GREEN, "Lens" );
   lensSelect();
   
@@ -631,6 +659,9 @@ void loop( void )
     Serial.printf( "connectBT=%d\n", connectBT );
     if ( connectBT ) {
       labelStatus->caption( TFT_YELLOW, "Connected to controller %s", systemParam.macBTString.c_str() );
+      if ( useEncoder ) {
+        encoder.ringLight( (uint16_t *)connectRingLitPattern, 20, 0, 0, 255 );
+      }
       SerialBT.printf( "Q%s#", myMacBTString.c_str() );
       systemParam.phase = PHASE_LENS;
     }
@@ -739,6 +770,15 @@ void loop( void )
         SerialBT.printf( "BC #" );
     } else if ( M5.BtnB.wasPressed() ) {
         SerialBT.printf( "BB #" );
+    }
+    if ( useEncoder ) {
+      // Rotate the encoder clockwise and the focus will be farther away.
+      // Rotate the encoder counter-clockwise brings the focus closer.
+      int16_t position = encoder.getCurrentPosition();
+      if ( latestEncoderPosition != position ) {
+        SerialBT.printf( "f%d#", position );
+        latestEncoderPosition = position;
+      }
     }
   }
 
@@ -856,6 +896,10 @@ void perserBT( void )
     case 'V':
       indicateBatteryLevel( param.toInt() );
       break;
+    case 'f':
+      focusPosition( param.toInt() );
+      SerialBT.printf( "F%d %d#", systemParam.phase, systemParam.focusPosition );
+      break;
     case 'L':
       nParam = argumentSeparatorString( param, paramStringList, ' ', 8 );
       systemParam.phase = paramStringList[0].toInt(); 
@@ -897,6 +941,9 @@ void perserBT( void )
         lensSelect();
         apertureSelect();
         focusPosition();
+        if ( useEncoder ) {
+          encoder.setEncoderPosition( systemParam.focusPosition );
+        }
         break;
       case PHASE_FOCUS:   // Adjusting the focus position of the lens.
         selectLensDisplay();
@@ -905,6 +952,9 @@ void perserBT( void )
         lensSelect();
         apertureSelect();
         focusPosition();
+        if ( useEncoder ) {
+          encoder.setEncoderPosition( systemParam.focusPosition );
+        }
         break;
       }
 //      SerialBT.printf( "P%d %d %d %d#", phase, systemParam.lensIndex, systemParam.apertureIndex, systemParam.focusPosition );
