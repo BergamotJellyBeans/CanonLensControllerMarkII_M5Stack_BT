@@ -77,6 +77,7 @@ uint8_t facesEncoder::ringLight( int index, uint8_t r, uint8_t g, uint8_t b )
     currentRingLight[index].colorRed = r;
     currentRingLight[index].colorGreen = g;
     currentRingLight[index].colorBlue = b;
+    delay( 5 );   // Latency for continuous access
     Wire.beginTransmission( addr );
     Wire.write( index );
     Wire.write( r );
@@ -107,7 +108,6 @@ void facesEncoder::ringLight( uint16_t *patternTable, uint16_t delayTime, uint8_
       } else {
         ringLight( index, 0, 0, 0 );
       }
-      delay( 2 );
       mbit <<= 1;
     }
     delay( delayTime );
