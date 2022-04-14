@@ -534,7 +534,13 @@ void setup()
   M5.begin( true, true, true, true );
   M5.Power.begin();
   Wire.begin();
+
   useEncoder = encoder.check();
+  if ( useEncoder ) {
+    Serial.printf( "Faces encoder connected.\n" );
+  } else {
+    Serial.printf( "Faces encoder not recognized.\n" );
+  }
   
   latestEncoderPosition = 0;
   latestButtonStatus = false;

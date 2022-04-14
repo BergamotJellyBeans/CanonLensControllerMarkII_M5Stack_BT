@@ -58,11 +58,11 @@ String IniFiles::readLine( void )
     uint8_t data = file.read();
     if ( data == 0x0d ) continue;
     if ( data == 0x0a ) {
-      *p = '\0';
       break;
     }
     *p++ = data;
   }
+  *p = '\0';
   stream = String( buff );
   return stream;
 }
