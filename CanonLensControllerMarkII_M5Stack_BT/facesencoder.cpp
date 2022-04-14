@@ -113,3 +113,18 @@ void facesEncoder::ringLight( uint16_t *patternTable, uint16_t delayTime, uint8_
     delay( delayTime );
   }
 }
+
+uint8_t facesEncoder::ringLight( int index, ledColorInfo_t ledColor )
+{
+  return ringLight( index, ledColor.colorRed, ledColor.colorGreen, ledColor.colorBlue );
+}
+
+void facesEncoder::ringLight( ledColorInfo_t ledColor )
+{
+  ringLight( ledColor.colorRed, ledColor.colorGreen, ledColor.colorBlue );
+}
+
+void facesEncoder::ringLight( uint16_t *patternTable, uint16_t delayTime, ledColorInfo_t ledColor )
+{
+  ringLight( patternTable, delayTime, ledColor.colorRed, ledColor.colorGreen, ledColor.colorBlue );
+}

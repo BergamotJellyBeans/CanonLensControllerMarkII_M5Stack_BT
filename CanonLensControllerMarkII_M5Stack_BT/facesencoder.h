@@ -70,6 +70,9 @@ public:
   uint8_t ringLight( int index, uint8_t r, uint8_t g, uint8_t b );
   void ringLight( uint8_t r, uint8_t g, uint8_t b );
   void ringLight( uint16_t *patternTable, uint16_t delayTime, uint8_t r, uint8_t g, uint8_t b );
+  uint8_t ringLight( int index, ledColorInfo_t ledColor );
+  void ringLight( ledColorInfo_t ledColor );
+  void ringLight( uint16_t *patternTable, uint16_t delayTime, ledColorInfo_t ledColor );
 
 };
 

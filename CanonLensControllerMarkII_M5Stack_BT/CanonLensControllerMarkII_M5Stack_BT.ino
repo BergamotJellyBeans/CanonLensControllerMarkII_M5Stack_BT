@@ -154,6 +154,9 @@ int16_t latestEncoderPosition;
 bool latestButtonStatus;
 int16_t incremet;
 int16_t currentLightIndicator;
+ledColorInfo_t ledColorConnect;
+ledColorInfo_t ledColorIndicator1;
+ledColorInfo_t ledColorIndicator10;
 
 unsigned long batteryUpdateTime;
 int lastBatteryLevel;
@@ -448,6 +451,29 @@ bool readSystemFile( void )
   } else {
     systemParam.remoconMode = 0;
   }
+
+  String paramString;
+  String paramStringList[3];
+  int nParam;
+  
+  paramString = ini.readString( "ledColorConnect", "0 0 255" );
+  nParam = argumentSeparatorString( paramString, paramStringList, ' ', 3 );
+  ledColorConnect.colorRed = paramStringList[0].toInt();
+  ledColorConnect.colorGreen = paramStringList[1].toInt();
+  ledColorConnect.colorBlue = paramStringList[2].toInt();
+
+  paramString = ini.readString( "ledColorIndicator1", "0 64 0" );
+  nParam = argumentSeparatorString( paramString, paramStringList, ' ', 3 );
+  ledColorIndicator1.colorRed = paramStringList[0].toInt();
+  ledColorIndicator1.colorGreen = paramStringList[1].toInt();
+  ledColorIndicator1.colorBlue = paramStringList[2].toInt();
+
+  paramString = ini.readString( "ledColorIndicator10", "64 0 0" );
+  nParam = argumentSeparatorString( paramString, paramStringList, ' ', 3 );
+  ledColorIndicator10.colorRed = paramStringList[0].toInt();
+  ledColorIndicator10.colorGreen = paramStringList[1].toInt();
+  ledColorIndicator10.colorBlue = paramStringList[2].toInt();
+
   ini.close( SD );
 
   return validFile;
@@ -493,9 +519,9 @@ void selectLensDisplay( void )
 void lightIndicator( void )
 {
   if ( incremet == 1 ) {
-    encoder.ringLight( currentLightIndicator, 0, 128, 0 );
+    encoder.ringLight( currentLightIndicator, ledColorIndicator1 );
   } else {
-    encoder.ringLight( currentLightIndicator, 128, 0, 0 );
+    encoder.ringLight( currentLightIndicator, ledColorIndicator10 );
   }
 }
 // --- Functions that are no longer used
@@ -678,7 +704,7 @@ void loop( void )
     if ( connectBT ) {
       labelStatus->caption( TFT_YELLOW, "Connected to controller %s", systemParam.macBTString.c_str() );
       if ( useEncoder ) {
-        encoder.ringLight( (uint16_t *)connectRingLitPattern, 20, 0, 0, 255 );
+        encoder.ringLight( (uint16_t *)connectRingLitPattern, 20, ledColorConnect );
       }
       incremet = 1;
       currentLightIndicator = 0;
