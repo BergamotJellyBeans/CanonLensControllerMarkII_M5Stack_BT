@@ -33,7 +33,7 @@ Protocol description
 	Copyright (C) 2022 by bergamot-jellybeans.
 
 	Date-written.	Jan 06,2022.
-	Last-modify.	Apr 13,2022.
+	Last-modify.	Apr 14,2022.
 	mailto:			bergamot.jellybeans@icloud.com
 
   Revision history
