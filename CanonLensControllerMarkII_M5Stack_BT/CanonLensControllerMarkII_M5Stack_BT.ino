@@ -774,9 +774,12 @@ void setup()
  *************************************************************************/
 void loop( void )
 {
-  Usb.Task();
   M5.update();
 
+  if ( !systemParam.remoconMode ) {
+    Usb.Task();
+  }
+  
   switch ( systemParam.phase ) {
   case PHASE_WAIT_USB_CONNECT:  // // Waiting for the lens controller to be connected.
     if ( FtdiAsync.flagOnInit ) {

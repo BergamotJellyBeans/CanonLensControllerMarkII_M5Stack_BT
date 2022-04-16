@@ -87,7 +87,9 @@ bool IniFiles::open( fs::FS &fs, char *path )
       String stream = readLine();
 //      Serial.printf( "%d %s\n", i, stream.c_str() );
       if ( stream == "" ) break;
-      lines[count++] = stream;
+      if ( stream.charAt( 0 ) != '#' ) {
+        lines[count++] = stream;
+      }
     }
     file.close();
   }
