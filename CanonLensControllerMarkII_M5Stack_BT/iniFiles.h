@@ -9,7 +9,7 @@
 	Copyright (C) 2022 by bergamot-jellybeans.
 
   Date-written. Feb 16,2019.
-  Last-modify.  Apr 16,2022.
+  Last-modify.  Apr 09,2021.
   mailto:		bergamot.jellybeans@icloud.com
 
   -Overview of the functions
@@ -45,7 +45,6 @@ public:
 
   bool open( fs::FS &fs, char *path );
   void close( fs::FS &fs );
-  bool isExists( String key );
   int readInteger( String key, int defaultval );
   double readFloat( String key, double defaultval );
   String readString( String key, String defaultval );

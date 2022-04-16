@@ -48,8 +48,6 @@ Protocol description
     The program name has been changed.    
   Apr 12,2022
     Added Faces encoder allows for focus control.
-  Apr 16,2022
-    Added backlight control.
     
 */
 
@@ -106,15 +104,6 @@ typedef struct {
   uint8_t macBT[6];
 } systemParameter_t;
 
-typedef struct {
-  uint8_t currentBrightness;
-  uint8_t wakeupBrightness;
-  uint8_t sleepBrightness;
-  unsigned long secondsToDim;
-  unsigned long dimmerCounter;
-  bool inSpeeping;
-} backLightControl_t;
-
 // FTDI Async class
 class FTDIAsync : public FTDIAsyncOper {
   public:
@@ -168,9 +157,6 @@ int16_t currentLightIndicator;
 ledColorInfo_t ledColorConnect;
 ledColorInfo_t ledColorIndicator1;
 ledColorInfo_t ledColorIndicator10;
-ledColorInfo_t ledColorIndicatorSleep1;
-ledColorInfo_t ledColorIndicatorSleep10;
-backLightControl_t backLight;
 
 unsigned long batteryUpdateTime;
 int lastBatteryLevel;
@@ -481,32 +467,12 @@ bool readSystemFile( void )
   ledColorIndicator1.colorRed = paramStringList[0].toInt();
   ledColorIndicator1.colorGreen = paramStringList[1].toInt();
   ledColorIndicator1.colorBlue = paramStringList[2].toInt();
-  ledColorIndicatorSleep1.colorRed = ledColorIndicator1.colorRed / 2;
-  ledColorIndicatorSleep1.colorGreen = ledColorIndicator1.colorGreen / 2;
-  ledColorIndicatorSleep1.colorBlue = ledColorIndicator1.colorBlue / 2;
 
   paramString = ini.readString( "ledColorIndicator10", "64 0 0" );
   nParam = argumentSeparatorString( paramString, paramStringList, ' ', 3 );
   ledColorIndicator10.colorRed = paramStringList[0].toInt();
   ledColorIndicator10.colorGreen = paramStringList[1].toInt();
   ledColorIndicator10.colorBlue = paramStringList[2].toInt();
-  ledColorIndicatorSleep10.colorRed = ledColorIndicator10.colorRed / 2;
-  ledColorIndicatorSleep10.colorGreen = ledColorIndicator10.colorGreen / 2;
-  ledColorIndicatorSleep10.colorBlue = ledColorIndicator10.colorBlue / 2;
-
-  backLight.wakeupBrightness = ini.readInteger( "backLightWakeupBrightness", 128 );
-  if ( !ini.isExists( "backLightWakeupBrightness" ) ) {
-    Serial.printf( "backLightWakeupBrightness = %d\n", backLight.wakeupBrightness );
-    ini.writeInteger( "backLightWakeupBrightness", backLight.wakeupBrightness );
-  }
-  backLight.sleepBrightness = ini.readInteger( "backLightSleepBrightness", 16 );
-  if ( !ini.isExists( "backLightSleepBrightness" ) ) {
-    ini.writeInteger( "backLightSleepBrightness", backLight.sleepBrightness );
-  }
-  backLight.secondsToDim = ini.readInteger( "backLightsecondsToDim", 30 );
-  if ( !ini.isExists( "backLightsecondsToDim" ) ) {
-    ini.writeInteger( "backLightsecondsToDim", backLight.secondsToDim );
-  }
 
   ini.close( SD );
 
@@ -552,66 +518,12 @@ void selectLensDisplay( void )
 
 void lightIndicator( void )
 {
-  if ( currentLightIndicator >= 0 ) {
-    if ( incremet == 1 ) {
-      if ( !backLight.inSpeeping ) {
-        encoder.ringLight( currentLightIndicator, ledColorIndicator1 );
-      } else {
-        encoder.ringLight( currentLightIndicator, ledColorIndicatorSleep1 );
-      }
-    } else {
-      if ( !backLight.inSpeeping ) {
-        encoder.ringLight( currentLightIndicator, ledColorIndicator10 );
-      } else {
-        encoder.ringLight( currentLightIndicator, ledColorIndicatorSleep10 );
-      }
-    }
+  if ( incremet == 1 ) {
+    encoder.ringLight( currentLightIndicator, ledColorIndicator1 );
+  } else {
+    encoder.ringLight( currentLightIndicator, ledColorIndicator10 );
   }
 }
-
-void setBackLight( uint8_t brightness )
-{
-  backLight.currentBrightness = brightness;
-  M5.Lcd.setBrightness( backLight.currentBrightness );
-}
-
-void sleepBackLight( void )
-{
-  backLight.inSpeeping = true;
-  setBackLight( backLight.sleepBrightness );
-}
-
-void wakeupBackLight( void )
-{
-  backLight.inSpeeping = false;
-  backLight.dimmerCounter = millis() + ( backLight.secondsToDim * 1000 );  // goto sleep time
-  setBackLight( backLight.wakeupBrightness );
-}
-
-bool shallWeGoToSleep( void )
-{
-  if ( !backLight.inSpeeping ) {
-    if ( backLight.dimmerCounter < millis() ) {
-      sleepBackLight();
-      if ( useEncoder ) {
-        lightIndicator();
-      }
-    }
-  }
-  return backLight.inSpeeping;
-}
-
-bool shallWeWakeup( void )
-{
-  if ( backLight.inSpeeping ) {
-    wakeupBackLight();    
-    if ( useEncoder ) {
-      lightIndicator();
-    }
-  }
-  return backLight.inSpeeping;
-}
-
 // --- Functions that are no longer used
 // Get the battery information of the M5Stack.
 #if 0
@@ -656,7 +568,6 @@ void setup()
     Serial.printf( "Faces encoder not recognized.\n" );
   }
   
-  currentLightIndicator = -1;
   latestEncoderPosition = 0;
   latestButtonStatus = false;
   batteryUpdateTime = 0;
@@ -730,7 +641,6 @@ void setup()
   readLensInfoFile();
   readSystemFile();
 
-  wakeupBackLight();
   labelLensNameTitle->caption( TFT_GREEN, "Lens" );
   lensSelect();
   
@@ -774,12 +684,9 @@ void setup()
  *************************************************************************/
 void loop( void )
 {
+  Usb.Task();
   M5.update();
 
-  if ( !systemParam.remoconMode ) {
-    Usb.Task();
-  }
-  
   switch ( systemParam.phase ) {
   case PHASE_WAIT_USB_CONNECT:  // // Waiting for the lens controller to be connected.
     if ( FtdiAsync.flagOnInit ) {
@@ -812,9 +719,6 @@ void loop( void )
     switch ( systemParam.phase ) {
     case PHASE_LENS:    // Lens selection in progress.
       if ( M5.BtnA.wasPressed() || ( virtualKeyMap[0] == 'A' ) ) {
-        if ( virtualKeyMap[0] != 'A' ) {
-          wakeupBackLight();
-        }
         systemParam.phase = PHASE_APERTURE;
         selectLensDisplay();
         lensSelect();
@@ -824,18 +728,12 @@ void loop( void )
         SerialBT.printf( "P%d %d %d %d#", systemParam.phase, systemParam.lensIndex, systemParam.apertureIndex, systemParam.focusPosition );
       }
       if ( M5.BtnC.wasPressed() || ( virtualKeyMap[0] == 'C' ) ) {
-        if ( virtualKeyMap[0] != 'C' ) {
-          wakeupBackLight();
-        }
         lensSelectNext();
         if ( connectBT ) {
           SerialBT.printf( "L%d %d#", systemParam.phase, systemParam.lensIndex );
         }
       }
       if ( M5.BtnB.wasPressed() || ( virtualKeyMap[0] == 'B' ) ) {
-        if ( virtualKeyMap[0] != 'B' ) {
-          wakeupBackLight();
-        }
         lensSelectPrev();
         if ( connectBT ) {
           SerialBT.printf( "L%d %d#", systemParam.phase, systemParam.lensIndex );
@@ -844,9 +742,6 @@ void loop( void )
       break;
     case PHASE_APERTURE:  // Aperture selection in progress.
       if ( M5.BtnA.wasPressed() || ( virtualKeyMap[0] == 'A' ) ) {
-        if ( virtualKeyMap[0] != 'A' ) {
-          wakeupBackLight();
-        }
         systemParam.phase = PHASE_FOCUS;
         labelApertureTitle->caption( TFT_WHITE, "Aperture" );
         labelFocusTitle->caption( TFT_GREEN, "Focus" );
@@ -857,18 +752,12 @@ void loop( void )
         }
       }
       if ( M5.BtnC.wasPressed() || ( virtualKeyMap[0] == 'C' ) ) {
-        if ( virtualKeyMap[0] != 'C' ) {
-          wakeupBackLight();
-        }
         apertureSelectNext();
         if ( connectBT ) {
           SerialBT.printf( "A%d %d#", systemParam.phase, systemParam.apertureIndex );
         }
       }
       if ( M5.BtnB.wasPressed() || ( virtualKeyMap[0] == 'B' ) ) {
-        if ( virtualKeyMap[0] != 'B' ) {
-          wakeupBackLight();
-        }
         apertureSelectPrev();
         if ( connectBT ) {
           SerialBT.printf( "A%d %d#", systemParam.phase, systemParam.apertureIndex );
@@ -877,9 +766,6 @@ void loop( void )
       break;
     case PHASE_FOCUS:   // Adjusting the focus position of the lens.
       if ( M5.BtnA.wasPressed() || ( virtualKeyMap[0] == 'A' ) ) {
-        if ( virtualKeyMap[0] != 'A' ) {
-          wakeupBackLight();
-        }
         if ( M5.BtnC.isPressed() || ( virtualKeyMap[1] == 'C' ) ) { 
           focusPositionIncrease( +10 );
           if ( connectBT ) {
@@ -902,18 +788,12 @@ void loop( void )
         }
       }
       if ( M5.BtnC.wasPressed() || ( virtualKeyMap[0] == 'C' ) ) {
-        if ( virtualKeyMap[0] != 'C' ) {
-          wakeupBackLight();
-        }
         focusPositionIncrease( +1 );
         if ( connectBT ) {
           SerialBT.printf( "F%d %d#", systemParam.phase, systemParam.focusPosition );
         }
       }
       if ( M5.BtnB.wasPressed() || ( virtualKeyMap[0] == 'B' ) ) {
-        if ( virtualKeyMap[0] != 'B' ) {
-          wakeupBackLight();
-        }
         focusPositionIncrease( -1 );
         if ( connectBT ) {
           SerialBT.printf( "F%d %d#", systemParam.phase, systemParam.focusPosition );
@@ -926,7 +806,6 @@ void loop( void )
     
   if ( systemParam.remoconMode && connectBT ) {
     if ( M5.BtnA.wasPressed() ) {
-      wakeupBackLight();
       if ( M5.BtnC.isPressed() ) { 
         SerialBT.printf( "BAC#" );
       } else if ( M5.BtnB.isPressed() ) {
@@ -935,11 +814,9 @@ void loop( void )
         SerialBT.printf( "BA #" );
       }
     } else if ( M5.BtnC.wasPressed() ) {
-      wakeupBackLight();
-      SerialBT.printf( "BC #" );
+        SerialBT.printf( "BC #" );
     } else if ( M5.BtnB.wasPressed() ) {
-      wakeupBackLight();
-      SerialBT.printf( "BB #" );
+        SerialBT.printf( "BB #" );
     }
     if ( useEncoder ) {
      // Rotate the encoder clockwise and the focus will be farther away.
@@ -950,7 +827,6 @@ void loop( void )
         int16_t position = encoder.getCurrentPosition();
         int16_t diff = position - latestEncoderPosition;
         if ( diff != 0 ) {
-          wakeupBackLight();
           SerialBT.printf( "f%d#", position );
           latestEncoderPosition = position;
           encoder.ringLight( currentLightIndicator, 0, 0, 0 );
@@ -966,7 +842,6 @@ void loop( void )
         }
         bool buttonStatus = encoder.buttonIsPressed(); 
         if ( latestButtonStatus != buttonStatus ) {
-          wakeupBackLight();
           if ( buttonStatus ) {
             incremet = ( incremet == 1 ) ? 10 : 1;
             encoder.setIncrementMultiplier( incremet );
@@ -1005,10 +880,6 @@ void loop( void )
 
   // Bluetooth serial data processing
   perserBT();
-
-  // Sleep
-  shallWeGoToSleep();
-
 }
 
 /*************************************************************************
@@ -1085,8 +956,7 @@ void perserBT( void )
     String param = replystr.substring( 1 );
     switch ( cmd ) {
     case 'Q':
-      wakeupBackLight();
-      labelStatus->caption( TFT_YELLOW, "Connected from remote controller %s", param.c_str() );
+      labelStatus->caption( TFT_YELLOW, "Connected from controller %s", param.c_str() );
       connectBT = 1;
       SerialBT.printf( "P%d %d %d %d#", systemParam.phase, systemParam.lensIndex, systemParam.apertureIndex, systemParam.focusPosition );
       SerialBT.printf( "V%d#", M5.Power.getBatteryLevel() );
