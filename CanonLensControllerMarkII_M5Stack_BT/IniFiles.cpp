@@ -87,7 +87,9 @@ bool IniFiles::open( fs::FS &fs, char *path )
       String stream = readLine();
 //      Serial.printf( "%d %s\n", i, stream.c_str() );
       if ( stream == "" ) break;
-      lines[count++] = stream;
+      if ( stream.charAt( 0 ) != '#' ) {
+        lines[count++] = stream;
+      }
     }
     file.close();
   }
@@ -118,6 +120,17 @@ void IniFiles::close( fs::FS &fs )
     }
   }
   delete [] lines;
+}
+
+bool IniFiles::isExists( String key )
+{
+  String keys = key + "=";
+  for ( int nk = 0; nk < count; nk++ ) {
+    String dline = lines[nk];
+    int pos = dline.indexOf( keys );
+    if ( pos >= 0 ) return true;
+  }
+  return false;
 }
 
 // Reads the numerical integer data of the argument <key>.
@@ -205,12 +218,12 @@ bool IniFiles::writeInteger( String key, int writeval )
 {
   String keys = key + "=";
   String sval = keys + String( writeval );
+  modified = true;
   for ( int nk = 0; nk < count; nk++ ) {
     String dline = lines[nk];
     int pos = dline.indexOf( keys );
     if ( pos >= 0 ) {
       lines[nk] = sval;
-      modified = true;
       return true;
     }
   }
@@ -223,12 +236,12 @@ bool IniFiles::writeString( String key, String writeval )
 {
   String keys = key + "=";
   String sval = keys + writeval;
+  modified = true;
   for ( int nk = 0; nk < count; nk++ ) {
     String dline = lines[nk];
     int pos = dline.indexOf( keys );
     if ( pos >= 0 ) {
       lines[nk] = sval;
-      modified = true;
       return true;
     }
   }
@@ -241,12 +254,12 @@ bool IniFiles::writeFloat( String key, double writeval )
 {
   String keys = key + "=";
   String sval = keys + String( writeval );
+  modified = true;
   for ( int nk = 0; nk < count; nk++ ) {
     String dline = lines[nk];
     int pos = dline.indexOf( keys );
     if ( pos >= 0 ) {
       lines[nk] = sval;
-      modified = true;
       return true;
     }
   }
